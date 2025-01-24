@@ -3,16 +3,16 @@ CREATE TABLE subjects (
     name VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE report_outcome (
-    id INT PRIMARY KEY,
+CREATE TABLE report_outcomes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     subject INT,
     year INT,
     FOREIGN KEY (subject) REFERENCES subjects(id)
 );
 
-CREATE TABLE learning_outcome (
-    id INT PRIMARY KEY,
+CREATE TABLE learning_outcomes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     subject INT,
     quarter INT,
@@ -20,8 +20,8 @@ CREATE TABLE learning_outcome (
     FOREIGN KEY (subject) REFERENCES subjects(id)
 );
 
-CREATE TABLE assessment_criteria (
-    id INT PRIMARY KEY,
+CREATE TABLE assessment_criterias (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     max_marks INT,
     subject INT,
@@ -35,7 +35,7 @@ CREATE TABLE students (
     name VARCHAR(100) NOT NULL
 );
 
-CREATE TABLE students_record (
+CREATE TABLE students_records (
     id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT ,
     class INT,

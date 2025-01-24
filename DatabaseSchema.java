@@ -76,7 +76,7 @@ CREATE TABLE lo_scores (
     lo_id INT,
     value DECIMAL(5, 2),
     PRIMARY KEY (student_id, lo_id),
-    FOREIGN KEY (student_id) REFERENCES students_record(id),
+    FOREIGN KEY (student_id) REFERENCES students_records(id),
     FOREIGN KEY (lo_id) REFERENCES learning_outcomes(id)
 );
 
@@ -85,6 +85,6 @@ CREATE TABLE ro_scores (
     ro_id INT,
     value DECIMAL(5, 2),
     PRIMARY KEY (student_id, ro_id),
-    FOREIGN KEY (student_id) REFERENCES students_record(id),
+    FOREIGN KEY (student_id) REFERENCES students_records(id),
     FOREIGN KEY (ro_id) REFERENCES report_outcomes(id)
 );

@@ -1,0 +1,107 @@
+INSERT INTO subjects (id, name) VALUES
+(1, 'Mathematics'),
+(2, 'Science'),
+(3, 'History'),
+(4, 'Geography'),
+(5, 'English'),
+(6, 'Computer Science');
+
+-- Insert data into the report_outcomes table
+INSERT INTO report_outcomes (id, name, subject, year) VALUES
+(1, 'Mathematics Report 2023', 1, 2023),
+(2, 'Science Report 2023', 2, 2023),
+(3, 'History Report 2023', 3, 2023),
+(4, 'Geography Report 2023', 4, 2023),
+(5, 'English Report 2023', 5, 2023),
+(6, 'Computer Science Report 2023', 6, 2023),
+(7, 'Mathematics Report 2024', 1, 2024),
+(8, 'Science Report 2024', 2, 2024);
+
+-- Insert data into the learning_outcomes table
+INSERT INTO learning_outcomes (id, name, subject, quarter, year) VALUES
+(1, 'Math LO Q1 2023', 1, 1, 2023),
+(2, 'Science LO Q1 2023', 2, 1, 2023),
+(3, 'History LO Q1 2023', 3, 1, 2023),
+(4, 'Geography LO Q1 2023', 4, 1, 2023),
+(5, 'English LO Q1 2023', 5, 1, 2023),
+(6, 'Computer Science LO Q1 2023', 6, 1, 2023),
+(7, 'Math LO Q2 2023', 1, 2, 2023),
+(8, 'Science LO Q2 2023', 2, 2, 2023);
+
+-- Insert data into the assessment_criterias table
+INSERT INTO assessment_criterias (id, name, max_marks, subject, quarter, year) VALUES
+(1, 'Math Assessment Q1 2023', 100, 1, 1, 2023),
+(2, 'Science Assessment Q1 2023', 100, 2, 1, 2023),
+(3, 'History Assessment Q1 2023', 100, 3, 1, 2023),
+(4, 'Geography Assessment Q1 2023', 100, 4, 1, 2023),
+(5, 'English Assessment Q1 2023', 100, 5, 1, 2023),
+(6, 'Computer Science Assessment Q1 2023', 100, 6, 1, 2023),
+(7, 'Math Assessment Q2 2023', 100, 1, 2, 2023),
+(8, 'Science Assessment Q2 2023', 100, 2, 2, 2023);
+
+-- Insert data into the students table
+INSERT INTO students (id, name) VALUES
+(1, 'Alice'),
+(2, 'Bob'),
+(3, 'Charlie'),
+(4, 'Diana'),
+(5, 'Eve'),
+(6, 'Frank');
+
+-- Insert data into the students_records table
+INSERT INTO students_records (id, student_id, class, section, year) VALUES
+(1, 1, 10, 'A', 2023),
+(2, 2, 10, 'A', 2023),
+(3, 3, 10, 'B', 2023),
+(4, 4, 10, 'B', 2023),
+(5, 5, 10, 'C', 2023),
+(6, 6, 10, 'C', 2023);
+
+-- Insert data into the lo_ac_mapping table
+INSERT INTO lo_ac_mapping (lo_id, ac_id, priority) VALUES
+(1, 1, 'High'),
+(2, 2, 'Medium'),
+(3, 3, 'Low'),
+(4, 4, 'High'),
+(5, 5, 'Medium'),
+(6, 6, 'Low'),
+(7, 7, 'High'),
+(8, 8, 'Medium');
+
+-- Insert data into the ro_lo_mapping table
+INSERT INTO ro_lo_mapping (ro_id, lo_id, priority) VALUES
+(1, 1, 'High'),
+(2, 2, 'Medium'),
+(3, 3, 'Low'),
+(4, 4, 'High'),
+(5, 5, 'Medium'),
+(6, 6, 'Low'),
+(7, 7, 'High'),
+(8, 8, 'Medium');
+
+-- Insert data into the ac_scores table
+INSERT INTO ac_scores (student_id, ac_id, value) VALUES
+(1, 1, 95.5),
+(2, 2, 88.0),
+(3, 3, 72.5),
+(4, 4, 85.0),
+(5, 5, 90.0),
+(6, 6, 75.0);
+
+-- Insert data into the lo_scores table
+INSERT INTO lo_scores (student_id, lo_id, value) VALUES
+(1, 1, 96.0),
+(2, 2, 89.0),
+(3, 3, 73.0),
+(4, 4, 86.0),
+(5, 5, 91.0),
+(6, 6, 76.0);
+
+-- Insert data into the ro_scores table
+INSERT INTO ro_scores (student_id, ro_id, value) VALUES
+(1, 1, 94.0),
+(2, 2, 87.0),
+(3, 3, 71.0),
+(4, 4, 84.0),
+(5, 5, 89.0),
+(6, 6, 74.0);

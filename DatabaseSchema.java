@@ -49,8 +49,8 @@ CREATE TABLE lo_ac_mapping (
     ac_id INT,
     priority VARCHAR(10),
     PRIMARY KEY (lo_id,ac_id),
-    FOREIGN KEY (lo_id) REFERENCES learning_outcome(id),
-    FOREIGN KEY (ac_id) REFERENCES assessment_criteria(id)
+    FOREIGN KEY (lo_id) REFERENCES learning_outcomes(id),
+    FOREIGN KEY (ac_id) REFERENCES assessment_criterias(id)
 );
 
 CREATE TABLE ro_lo_mapping (
@@ -58,8 +58,8 @@ CREATE TABLE ro_lo_mapping (
     lo_id INT,
     priority VARCHAR(10),
     PRIMARY KEY (ro_id,lo_id),
-    FOREIGN KEY (ro_id) REFERENCES report_outcome(id),
-    FOREIGN KEY (lo_id) REFERENCES assessment_criteria(id)
+    FOREIGN KEY (ro_id) REFERENCES report_outcomes(id),
+    FOREIGN KEY (lo_id) REFERENCES assessment_criterias(id)
 );
 
 CREATE TABLE ac_scores (
@@ -67,8 +67,8 @@ CREATE TABLE ac_scores (
     ac_id INT,
     value DECIMAL(5, 2),
     PRIMARY KEY (student_id, ac_id),
-    FOREIGN KEY (student_id) REFERENCES students_record(id),
-    FOREIGN KEY (ac_id) REFERENCES assessment_criteria(id)
+    FOREIGN KEY (student_id) REFERENCES students_records(id),
+    FOREIGN KEY (ac_id) REFERENCES assessment_criterias(id)
 );
 
 CREATE TABLE lo_scores (
@@ -77,7 +77,7 @@ CREATE TABLE lo_scores (
     value DECIMAL(5, 2),
     PRIMARY KEY (student_id, lo_id),
     FOREIGN KEY (student_id) REFERENCES students_record(id),
-    FOREIGN KEY (lo_id) REFERENCES learning_outcome(id)
+    FOREIGN KEY (lo_id) REFERENCES learning_outcomes(id)
 );
 
 CREATE TABLE ro_scores (
@@ -86,5 +86,5 @@ CREATE TABLE ro_scores (
     value DECIMAL(5, 2),
     PRIMARY KEY (student_id, ro_id),
     FOREIGN KEY (student_id) REFERENCES students_record(id),
-    FOREIGN KEY (ro_id) REFERENCES report_outcome(id)
+    FOREIGN KEY (ro_id) REFERENCES report_outcomes(id)
 );

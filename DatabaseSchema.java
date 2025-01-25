@@ -47,7 +47,7 @@ CREATE TABLE students_records (
 CREATE TABLE lo_ac_mapping (
     lo_id INT,
     ac_id INT,
-    weight DECIMAL(5, 2),
+    weight DECIMAL(3, 2),
     PRIMARY KEY (lo_id,ac_id),
     FOREIGN KEY (lo_id) REFERENCES learning_outcomes(id),
     FOREIGN KEY (ac_id) REFERENCES assessment_criterias(id)
@@ -56,7 +56,7 @@ CREATE TABLE lo_ac_mapping (
 CREATE TABLE ro_lo_mapping (
     ro_id INT,
     lo_id INT,
-    weight DECIMAL(5, 2),
+    weight DECIMAL(3,2),
     PRIMARY KEY (ro_id,lo_id),
     FOREIGN KEY (ro_id) REFERENCES report_outcomes(id),
     FOREIGN KEY (lo_id) REFERENCES assessment_criterias(id)

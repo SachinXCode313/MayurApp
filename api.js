@@ -267,59 +267,146 @@ const priorityValues = {
         });
         //-------------------------------------------------------------------------------------------------------------------
        // POST API to add normalized score for a student
-        app.post("/api/ac_scores", async (req, res) => {
+        app.post('/api/assessment_criterias', async (req, res) => {
+            const { year, quarter, subject } = req.headers; // Extract headers
+            const { max_marks, name } = req.body; // Extract body parameters
+
+            // Validate required fields
+            if (!year || !quarter || !subject || !max_marks || !name) {
+                return res.status(400).json({
+                    message: 'Missing required fields. Ensure year, quarter, subject (headers), and max_marks, name (body) are provided.',
+                });
+            }
+
             try {
-            // Extracting headers
-            const { year, quarter, subject, student_id, ac_id } = req.headers;
-        
-            // Extracting obtained marks from the body
-            const { obtained_marks } = req.body;
-        
-            // Input validation
-            if (!obtained_marks) {
-                return res.status(400).json({ error: "obtained_marks is required in the body" });
-            }
-            if (!student_id || !ac_id) {
-                return res.status(400).json({ error: "student_id and ac_id are required in the headers" });
-            }
-        
-            // Fetch the assessment criteria using ac_id
-            const [criteriaRows] = await db.query(
-                "SELECT max_marks FROM assessment_criterias WHERE id = ? AND subject = ? AND quarter = ? AND year = ?",
-                [ac_id, subject, quarter, year]
-            );
-        
-            // If no matching criteria is found
-            if (criteriaRows.length === 0) {
-                return res.status(404).json({ error: "Assessment criteria not found for the given parameters" });
-            }
-        
-            // Fetching max_marks for normalization
-            const max_marks = criteriaRows[0].max_marks;
-        
-            // Calculate normalized marks
-            const normalized_marks = obtained_marks / max_marks;
-        
-            // Insert normalized score into ac_scores table
-            const [result] = await db.query(
-                "INSERT INTO ac_scores (student_id, ac_id, value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?",
-                [student_id, ac_id, normalized_marks, normalized_marks]
-            );
-        
-            // Respond with success message
-            res.status(201).json({
-                message: "Normalized score saved successfully",
-                data: {
-                student_id,
-                ac_id,
-                normalized_marks,
-                },
-            });
-            } catch (error) {
-            console.error("Error adding normalized score:", error.message);
-            res.status(500).json({ error: "Internal Server Error" });
+                // SQL query to insert data into the table
+                const insertQuery = `
+                    INSERT INTO assessment_criterias (name, max_marks, year, quarter, subject)
+                    VALUES (?, ?, ?, ?, ?)
+                `;
+
+                // Execute the query
+                const [result] = await db.execute(insertQuery, [
+                    name,
+                    max_marks,
+                    year,
+                    quarter,
+                    subject,
+                ]);
+
+                // Return success response
+                return res.status(201).json({
+                    message: 'Assessment criterion added successfully',
+                    insertedId: result.insertId, // Return the ID of the inserted record
+                });
+            } catch (err) {
+                console.error('Error inserting assessment criteria:', err);
+
+                // Handle database-specific errors
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(409).json({
+                        message: 'Duplicate entry. This assessment criterion already exists.',
+                    });
+                }
+
+                return res.status(500).json({
+                    message: 'Server error while inserting assessment criteria',
+                    error: err.message,
+                });
             }
         });
+        //-------------------------------------------------------------------------------------------------------------------
+        // POST API to add normalized score for a student
+        app.post("/api/ac_scores", async (req, res) => {
+            try {
+                // Extracting headers
+                const { year, quarter, className, section, subject } = req.headers;
+        
+                // Extracting obtained marks from the body
+                const { student_id, ac_id, obtained_marks } = req.body;
+        
+                // Input validation
+                if (!obtained_marks) {
+                    return res.status(400).json({ error: "obtained_marks is required in the body" });
+                }
+                if (!student_id || !ac_id) {
+                    return res.status(400).json({ error: "student_id and ac_id are required in the headers" });
+                }
+        
+                const [studentRows] = await db.query(
+                    `SELECT student_id FROM students_records 
+                     WHERE student_id = ? AND year = ? AND class = ? AND section = ?`,
+                    [student_id, year, className, section]
+                );
+        
+                // Fetch the assessment criteria using ac_id
+                const [criteriaRows] = await db.query(
+                    `SELECT max_marks FROM assessment_criterias WHERE id = ? AND subject = ? AND quarter = ? AND year = ?`,
+                    [ac_id, subject, quarter, year]
+                );
+        
+                // If no matching criteria is found
+                if (criteriaRows.length === 0) {
+                    return res.status(404).json({ error: "Assessment criteria not found for the given parameters" });
+                }
+        
+                // Fetching max_marks for normalization
+                const max_marks = criteriaRows[0].max_marks;
+        
+                // Calculate normalized marks
+                const normalized_marks = obtained_marks / max_marks;
+        
+                // Insert normalized score into ac_scores table
+                await db.query(
+                    `INSERT INTO ac_scores (student_id, ac_id, value) 
+                     VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?`,
+                    [student_id, ac_id, normalized_marks, normalized_marks]
+                );
+        
+                // Fetch LO-AC mappings
+                const [loAcMappingRows] = await db.query(
+                    `SELECT lo_id, weight FROM lo_ac_mapping WHERE ac_id = ?`,
+                    [ac_id]
+                );
+        
+                if (loAcMappingRows.length === 0) {
+                    return res.status(404).json({ error: "No mapping found for the provided ac_id" });
+                }
+        
+                // Loop through all mappings and calculate/store LO_scores
+                for (let i = 0; i < loAcMappingRows.length; i++) {
+                    const { lo_id, weight } = loAcMappingRows[i];
+        
+                    // Calculate LO score for the specific mapping
+                    const lo_score = weight * normalized_marks;
+        
+                    // Insert or update LO score in lo_scores table
+                    await db.query(
+                        `INSERT INTO lo_scores (student_id, lo_id, value) 
+                         VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?`,
+                        [student_id, lo_id, lo_score, lo_score]
+                    );
+                }
+        
+                // Success response
+                res.status(201).json({
+                    message: "Normalized score and LO scores saved successfully",
+                    data: {
+                        student_id,
+                        ac_id,
+                        normalized_marks,
+                        lo_scores: loAcMappingRows.map(({ lo_id }) => ({
+                            lo_id,
+                            lo_score: normalized_marks * loAcMappingRows.find(m => m.lo_id === lo_id).weight
+                        })),
+                    },
+                });
+            } catch (error) {
+                console.error("Error adding normalized score:", error.message);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+        
         //---------------------------------------------------------------------------------------------------------------------
         // GET ac_scores
         //---------------------------------------------------------------------------------------------------------------------
@@ -435,13 +522,13 @@ const priorityValues = {
 
                         // Calculate weights for h, m, l based on occurrences
                         if (hOccurance > 0) {
-                            hWeight = (priorityValues.h * hOccurance) / totalDenominator;
+                            hWeight = (priorityValues.h) / totalDenominator;
                         }
                         if (mOccurance > 0) {
-                            mWeight = (priorityValues.m * mOccurance) / totalDenominator;
+                            mWeight = (priorityValues.m) / totalDenominator;
                         }
                         if (lOccurance > 0) {
-                            lWeight = (priorityValues.l * lOccurance) / totalDenominator;
+                            lWeight = (priorityValues.l) / totalDenominator;
                         }
 
                         // Insert into lo_ac_mapping table only for relevant weights

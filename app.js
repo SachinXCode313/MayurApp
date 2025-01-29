@@ -4,36 +4,23 @@ import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
-
-// Middleware
 app.use(express.json());
 app.use(cors());
 
-
-const priorityValues = {
-    h: 0.5,
-    m: 0.3,
-    l: 0.2
-};
-
-
-// Use async/await properly
 (async () => {
     try {
         const db = await mysql.createPool({
-            host: "localhost", // Change to your DB host
-            user: "root",      // Change to your DB username
-            password: "sachin@313", // Change to your DB password
-            database: "mayoor", // Change to your database name
+            host: "localhost",
+            user: "root",
+            password: "sachin@313",
+            database: "mayoor",
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0,
         });
-
         console.log("Connected to the database");
 
-        // Define APIs inside the async block to ensure `db` is initialized
-
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get('/api/students', async (req, res) => {
             const year = req.headers['year'];
             const className = req.headers['class'];
@@ -72,12 +59,12 @@ const priorityValues = {
             }
         });
 
-        app.post('/api/newstudents', async (req, res) => {
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
+        app.post('/api/students', async (req, res) => {
             const year = req.headers['year'];
             const className = req.headers['class'];
             const section = req.headers['section'];
             const studentName = req.body.studentName;
-            console.log(year, className, section, studentName)
             if (!year || !className || !section || !studentName) {
                 return res.status(400).json({
                     message: "Missing required headers. Please provide 'year', 'class', 'section' and 'studentName'."
@@ -99,7 +86,6 @@ const priorityValues = {
                     INSERT INTO students_records (id, student_id, class, section, year)
                     SELECT COALESCE(MAX(id), 0) + 1, ?, ?, ?, ? FROM students_records`;
                 await db.execute(insertRecordQuery, [newStudentId, className, section, year]);
-                console.log('Student and record inserted successfully');
                 return res.status(201).json({
                     message: "Student and record inserted successfully"
                 });
@@ -112,10 +98,7 @@ const priorityValues = {
             }
         });
 
-
-        //-------------------------------------------------------------------------------------------------------------------
-        // Get API for report_outcomes
-        //-------------------------------------------------------------------------------------------------------------------
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get("/api/report_outcomes", async (req, res) => {
             const year = req.headers["year"];
             const subject = req.headers["subject"];
@@ -151,9 +134,7 @@ const priorityValues = {
             }
         });
 
-        //-------------------------------------------------------------------------------------------------------------------
-        // POST learning_outcomes
-        //-------------------------------------------------------------------------------------------------------------------
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post("/api/learning_outcomes", async (req, res) => {
             const { year, quarter, subject } = req.headers;
             const { name } = req.body;
@@ -163,17 +144,19 @@ const priorityValues = {
                     message: "Missing required fields: year, quarter, subject (headers) or name (body).",
                 });
             }
-
             try {
+                const [maxIdRow] = await db.execute('SELECT MAX(id) AS maxId FROM learning_outcomes');
+                const newId = (maxIdRow[0].maxId || 0) + 1;
+
                 const query = `
-            INSERT INTO learning_outcomes (name, year, quarter, subject) 
-            VALUES (?, ?, ?, ?)
-            `;
-                const [result] = await db.execute(query, [name, year, quarter, subject]);
+                INSERT INTO learning_outcomes (id, name, year, quarter, subject) 
+                VALUES (?, ?, ?, ?, ?)
+                `;
+                const [result] = await db.execute(query, [newId, name, year, quarter, subject]);
 
                 res.status(201).json({
                     message: "Learning outcome added successfully",
-                    insertedId: result.insertId,
+                    insertedId: newId, // Respond with the manually generated ID
                 });
             } catch (err) {
                 console.error("Error inserting learning outcome:", err);
@@ -181,9 +164,7 @@ const priorityValues = {
             }
         });
 
-        //-------------------------------------------------------------------------------------------------------------------
-        // GET learning_outcomes
-        //-------------------------------------------------------------------------------------------------------------------
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get("/api/learning_outcomes", async (req, res) => {
             const { year, subject, quarter } = req.headers;
 
@@ -209,9 +190,8 @@ const priorityValues = {
                 res.status(500).json({ message: "Internal server error" });
             }
         });
-        //---------------------------------------------------------------------------------------------------------------------
-        // GET Assessment_criterias
-        //---------------------------------------------------------------------------------------------------------------------
+
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get('/api/assessment_criterias', async (req, res) => {
             const { subject, year, quarter } = req.headers; // Extract headers
 
@@ -256,11 +236,11 @@ const priorityValues = {
                 });
             }
         });
-        //-------------------------------------------------------------------------------------------------------------------
-        // POST Assessment_criterias
+
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post('/api/assessment_criterias', async (req, res) => {
-            const { year, quarter, subject } = req.headers; // Extract headers
-            const { max_marks, name } = req.body; // Extract body parameters
+            const { year, quarter, subject } = req.headers;
+            const { max_marks, name } = req.body;
 
             // Validate required fields
             if (!year || !quarter || !subject || !max_marks || !name) {
@@ -306,104 +286,61 @@ const priorityValues = {
                 });
             }
         });
-        //-------------------------------------------------------------------------------------------------------------------
-        // POST API to add normalized score for a student
+
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post("/api/ac_scores", async (req, res) => {
             try {
                 // Extracting headers
-                const { year, quarter, className, section, subject } = req.headers;
-        
+                const { year, quarter, subject } = req.headers;
+
                 // Extracting obtained marks from the body
-                const { student_id, ac_id, obtained_marks } = req.body;
-        
+                const { obtained_marks, student_id, ac_id } = req.body;
+
                 // Input validation
                 if (!obtained_marks) {
-                    return res.status(400).json({ error: "obtained_marks is required in the body" });
+                    return res.status(400).json({ error: "obtained_marks, student_id and ac_id is required in the body" });
                 }
                 if (!student_id || !ac_id) {
-                    return res.status(400).json({ error: "student_id and ac_id are required in the headers" });
+                    return res.status(400).json({ error: "year, quarter, subject are required in the headers" });
                 }
-        
-                const [studentRows] = await db.query(
-                    `SELECT student_id FROM students_records 
-                     WHERE student_id = ? AND year = ? AND class = ? AND section = ?`,
-                    [student_id, year, className, section]
-                );
-        
+
                 // Fetch the assessment criteria using ac_id
                 const [criteriaRows] = await db.query(
-                    `SELECT max_marks FROM assessment_criterias WHERE id = ? AND subject = ? AND quarter = ? AND year = ?`,
+                    "SELECT max_marks FROM assessment_criterias WHERE id = ? AND subject = ? AND quarter = ? AND year = ?",
                     [ac_id, subject, quarter, year]
                 );
-        
+
                 // If no matching criteria is found
                 if (criteriaRows.length === 0) {
                     return res.status(404).json({ error: "Assessment criteria not found for the given parameters" });
                 }
-        
+
                 // Fetching max_marks for normalization
                 const max_marks = criteriaRows[0].max_marks;
-        
-                // Calculate normalized marks
+
                 if(obtained_marks > max_marks){
-                    return res.status(404).json({ error: "Obtained Marks is greater than Maximum Marks of Assessment criteria" })
+                    return res.status(404).json({ error: "Obtained Marks cannot be greater than Maximum marks of the Assessment" });
                 }
+                // Calculate normalized marks
                 const normalized_marks = obtained_marks / max_marks;
-        
+
                 // Insert normalized score into ac_scores table
-                await db.query(
-                    `INSERT INTO ac_scores (student_id, ac_id, value) 
-                     VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?`,
+                const [result] = await db.query(
+                    "INSERT INTO ac_scores (student_id, ac_id, value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?",
                     [student_id, ac_id, normalized_marks, normalized_marks]
                 );
-        
-                // Fetch LO-AC mappings
-                const [loAcMappingRows] = await db.query(
-                    `SELECT lo_id, weight FROM lo_ac_mapping WHERE ac_id = ?`,
-                    [ac_id]
-                );
-        
-                if (loAcMappingRows.length === 0) {
-                    return res.status(404).json({ error: "No mapping found for the provided ac_id" });
-                }
-        
-                // Loop through all mappings and calculate/store LO_scores
-                for (let i = 0; i < loAcMappingRows.length; i++) {
-                    const { lo_id, weight } = loAcMappingRows[i];
-        
-                    // Calculate LO score for the specific mapping
-                    const lo_score = weight * normalized_marks;
-        
-                    // Insert or update LO score in lo_scores table
-                    await db.query(
-                        `INSERT INTO lo_scores (student_id, lo_id, value) 
-                         VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?`,
-                        [student_id, lo_id, lo_score, lo_score]
-                    );
-                }
-        
-                // Success response
+
+                // Respond with success message
                 res.status(201).json({
-                    message: "Normalized score and LO scores saved successfully",
-                    data: {
-                        student_id,
-                        ac_id,
-                        normalized_marks,
-                        lo_scores: loAcMappingRows.map(({ lo_id }) => ({
-                            lo_id,
-                            lo_score: normalized_marks * loAcMappingRows.find(m => m.lo_id === lo_id).weight
-                        })),
-                    },
+                    message: "Normalized score saved successfully"
                 });
             } catch (error) {
                 console.error("Error adding normalized score:", error.message);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
-        
-        //---------------------------------------------------------------------------------------------------------------------
-        // GET ac_scores
-        //---------------------------------------------------------------------------------------------------------------------
+
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get('/api/ac_scores', async (req, res) => {
             const { student_id, ac_id } = req.headers; // Extract headers
 
@@ -446,9 +383,6 @@ const priorityValues = {
                 });
             }
         });
-        //---------------------------------------------------------------------------------------------------------------------
-        // POST lo_ac_mapping
-        //---------------------------------------------------------------------------------------------------------------------
         const priorityValues = {
             h: 0.5,
             m: 0.3,
@@ -456,337 +390,276 @@ const priorityValues = {
         };
         app.post("/api/lo_ac_mapping", async (req, res) => {
             try {
-                // Extract filters from headers
-                const lo_id = req.headers['lo_id'];
-                const subject = req.headers['subject'];
-                const quarter = req.headers['quarter'];
-                const year = req.headers['year'];
-                // Extract data from the body (JSON)
-                const { data } = req.body; // This should be an array with each element containing ac_id and priority (h, m, l)
-                // Validation check for data
+                // Extract headers
+                const subject = req.headers["subject"];
+                const quarter = req.headers["quarter"];
+                const year = req.headers["year"];
+                const className = req.headers["class"];
+                const section = req.headers["section"];
+                // Extract and validate data from the request body
+                const { lo_id, data } = req.body;
+                console.log("dartaaa....")
+                console.log(req.body.data[0].mappings)
+                console.log(req.headers)
                 if (!data || !Array.isArray(data) || data.length === 0) {
                     return res.status(400).json({ error: "Invalid data format. Expected an array of objects with ac_id and priority." });
                 }
+                // Validate priority values
                 const validPriorities = ["h", "m", "l"];
                 for (const item of data) {
-                    const { priority } = item;
-                    if (!validPriorities.includes(priority)) {
-                        return res.status(400).json({ error: `Invalid priority value '${priority}'. Priority must be one of: 'h', 'm', or 'l'.` });
+                    if (!validPriorities.includes(item.priority)) {
+                        return res.status(400).json({ error: `Invalid priority '${item.priority}'. Must be 'h', 'm', or 'l'.` });
                     }
                 }
-                // Step 1: Validate `lo_id` from headers
-                const [loRows] = await db.query(
-                    `SELECT id AS lo_id FROM learning_outcomes WHERE id = ?`,
-                    [lo_id]
-                );
+                // Validate `lo_id`
+                const [loRows] = await db.query(`SELECT id FROM learning_outcomes WHERE id = ?`, [lo_id]);
                 if (loRows.length === 0) {
-                    return res.status(404).json({ error: "Invalid lo_id provided in the headers." });
+                    return res.status(404).json({ error: "Invalid lo_id provided." });
                 }
-                // Step 2: Fetch relevant assessment_criterias based on subject, quarter, and year
-                const [acRows] = await db.query(
-                    `SELECT id AS ac_id FROM assessment_criterias WHERE subject = ? AND quarter = ? AND year = ?`,
-                    [subject, quarter, year]
+                // Fetch student IDs from `students_records`
+                const [studentRows] = await db.query(
+                    `SELECT student_id FROM students_records WHERE year = ${year} AND class = ${className} AND section = ${section}`
                 );
-                if (acRows.length === 0) {
-                    return res.status(404).json({ error: "No matching assessment criteria found for the provided filters." });
+                console.log(studentRows)
+                if (studentRows.length === 0) {
+                    return res.status(404).json({ error: "No students found in students_records for the given filters." });
                 }
-                const acIds = acRows.map(row => row.ac_id); 
-                console.log(acIds)// Extract ac_id
-                // Step 3: Calculate priority occurrences
-                let hOccurance = 0, mOccurance = 0, lOccurance = 0;
+                const studentIds = studentRows.map(row => row.student_id);
+                // Extract ac_ids from the request data
+                const inputAcIds = data.map(item => item.ac_id);
+                // Validate provided ac_ids
+                const [validAcRows] = await db.query(
+                    `SELECT id AS ac_id FROM assessment_criterias WHERE id IN (?) AND subject = ? AND quarter = ?`,
+                    [inputAcIds, subject, quarter]
+                );
+                const validAcIds = validAcRows.map(row => row.ac_id);
+                if (validAcIds.length !== inputAcIds.length) {
+                    return res.status(404).json({ error: "Some provided ac_ids are invalid or do not match filters." });
+                }
+                // Calculate total denominator for weights
+                let totalDenominator = 0;
                 data.forEach(item => {
-                    const { ac_id, priority } = item;
-                    if (priority === "h") {
-                        hOccurance++;
-                    } else if (priority === "m") {
-                        mOccurance++;
-                    } else{
-                        lOccurance++;
-                    }
+                    totalDenominator += priorityValues[item.priority];
                 });
-                const totalDenominator = (priorityValues.h * hOccurance) + (priorityValues.m * mOccurance) + (priorityValues.l * lOccurance);
-                // Check if we have valid data for calculating weights
                 if (totalDenominator === 0) {
-                    return res.status(400).json({ error: "The total denominator for weight calculation is zero. Check input values." });
+                    return res.status(400).json({ error: "Invalid weight calculation, check input values." });
                 }
-                // Step 5: Process mappings for each ac_id with the specified lo_id
-                const loAcMappingPromises = acIds.map(async ac_id => {
-                    // Initialize weight variables
-                    let hWeight = 0, mWeight = 0, lWeight = 0;
-                    // Calculate weights for h, m, l based on occurrences
-                    if (hOccurance > 0) {
-                        hWeight = (priorityValues.h) / totalDenominator;
-                    }
-                    if (mOccurance > 0) {
-                        mWeight = (priorityValues.m) / totalDenominator;
-                    }
-                    if (lOccurance > 0) {
-                        lWeight = (priorityValues.l) / totalDenominator;
-                    }
-                    // Insert into lo_ac_mapping table only for relevant weights
-                    const weights = [
-                        { weight: hWeight, occurrence: hOccurance },
-                        { weight: mWeight, occurrence: mOccurance },
-                        { weight: lWeight, occurrence: lOccurance },
-                    ];
-                    await Promise.all(weights.map(async ({ weight, occurrence }) => {
-                        if (weight > 0 && occurrence > 0) {
-                            await db.query(
-                                "INSERT INTO lo_ac_mapping (lo_id, ac_id, weight) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight = ?",
-                                [lo_id, ac_id, weight, weight]
-                            );
-                        }
-                    }));
+                // Insert weights into `lo_ac_mapping`
+                const loAcMappingPromises = data.map(async (item) => {
+                    const { ac_id, priority } = item;
+                    let weight = priorityValues[priority] / totalDenominator;
+                    await db.query(
+                        "INSERT INTO lo_ac_mapping (lo_id, ac_id, weight) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight = ?",
+                        [lo_id, ac_id, weight, weight]
+                    );
+                    return { ac_id, weight };
                 });
-                // Wait for all insert operations to complete
-                console.log(lo_id, acIds)
-                await Promise.all(loAcMappingPromises);
+                // Resolve all weight calculations
+                const mappings = await Promise.all(loAcMappingPromises);
+                // Process lo_scores for each student
+                for (const student_id of studentIds) {
+                    let loScore = 0;
+                    for (const mapping of mappings) {
+                        const { ac_id, weight } = mapping;
+                        // Fetch `value` from `ac_scores`
+                        const [acScoreRows] = await db.query(
+                            "SELECT value FROM ac_scores WHERE ac_id = ? AND student_id = ?",
+                            [ac_id, student_id]
+                        );
+                        if (acScoreRows.length === 0) {
+                            console.warn(`Missing ac_scores for ac_id: ${ac_id}, student_id: ${student_id}`);
+                            continue;
+                        }
+                        const { value } = acScoreRows[0];
+                        loScore += weight * value;
+                    }
+                    // Insert or update `lo_scores`
+                    await db.query(
+                        "INSERT INTO lo_scores (lo_id, student_id, value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?",
+                        [lo_id, student_id, loScore, loScore]
+                    );
+                }
                 res.status(201).json({
                     message: "LO and AC mapping with weights saved successfully",
+                    students_processed: studentIds.length,
                 });
             } catch (error) {
                 console.error("Error mapping LO and AC:", error.message);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post("/api/ro_lo_mapping", async (req, res) => {
             try {
-                // Extract filters from headers
-                const { subject, year } = req.headers;
-                // Extract data from the body (JSON)
-                const { data } = req.body; // Array with each element containing lo_id and priority (h, m, l)
-                // Validation check for data
+                // Extract headers
+                const subject = req.headers["subject"];
+                const quarter = req.headers["quarter"];
+                const year = req.headers["year"];
+                const className = req.headers["class"];
+                const section = req.headers["section"];
+                // Extract and validate data from request body
+                const { ro_id, data } = req.body;
                 if (!data || !Array.isArray(data) || data.length === 0) {
-                    return res.status(400).json({
-                        error: "Invalid data format. Expected an array of objects with lo_id and priority.",
-                    });
+                    return res.status(400).json({ error: "Invalid data format. Expected an array of objects with lo_id and priority." });
                 }
-                // Fetch relevant report_outcomes (RO) based on filters
-                const [roRows] = await db.query(
-                    `SELECT ro.id AS ro_id
-                    FROM report_outcomes ro
-                    WHERE ro.subject = ? AND ro.year = ?`,
-                    [subject, year]
-                );
-                if (roRows.length === 0) {
-                    return res.status(404).json({
-                        error: "No matching RO records found for the provided filters.",
-                    });
-                }
-                // Calculate priority occurrences
-                let hOccurance = 0, mOccurance = 0, lOccurance = 0;
-                // Process input data and calculate total occurrences
-                data.forEach(item => {
-                    const { lo_id, priority } = item;
-                    if (priority === "h") {
-                        hOccurance++;
-                    } else if (priority === "m") {
-                        mOccurance++;
-                    } else if (priority === "l") {
-                        lOccurance++;
+                // Validate priority values
+                const validPriorities = ["h", "m", "l"];
+                for (const item of data) {
+                    if (!validPriorities.includes(item.priority)) {
+                        return res.status(400).json({ error: `Invalid priority '${item.priority}'. Must be 'h', 'm', or 'l'.` });
                     }
-                });
-                // Calculate the total denominator
-                const totalDenominator = (priorityValues.h * hOccurance) + (priorityValues.m * mOccurance) + (priorityValues.l * lOccurance);
-                // Check if we have valid data for calculating weights
-                if (totalDenominator === 0) {
-                    return res.status(400).json({
-                        error: "The total denominator for weight calculation is zero. Check input values.",
-                    });
                 }
-                // Calculate weight for each RO and LO pair based on priority
+                // Validate `ro_id`
+                const [roRows] = await db.query("SELECT id FROM report_outcomes WHERE id = ?", [ro_id]);
+                if (roRows.length === 0) {
+                    return res.status(404).json({ error: "Invalid ro_id provided." });
+                }
+                console.log(className,section)
+                // Fetch student IDs from `students_records`
+                const [studentRows] = await db.query(
+                    `SELECT student_id FROM students_records WHERE year = ${year} AND class = ${className} AND section = ${section}`
+                );
+                if (studentRows.length === 0) {
+                    return res.status(404).json({ error: "No students found in students_records for the given filters." });
+                }
+                const studentIds = studentRows.map(row => row.student_id);
+                // Extract lo_ids from the request data
+                const inputLoIds = data.map(item => item.lo_id);
+                // Validate provided lo_ids
+                const [validLoRows] = await db.query(
+                    "SELECT id AS lo_id FROM learning_outcomes WHERE id IN (?) AND subject = ? AND quarter = ?",
+                    [inputLoIds, subject, quarter]
+                );
+                const validLoIds = validLoRows.map(row => row.lo_id);
+                if (validLoIds.length !== inputLoIds.length) {
+                    return res.status(404).json({ error: "Some provided lo_ids are invalid or do not match filters." });
+                }
+                // Calculate total denominator for weights
+                let totalDenominator = 0;
+                data.forEach(item => {
+                    totalDenominator += priorityValues[item.priority];
+                });
+                if (totalDenominator === 0) {
+                    return res.status(400).json({ error: "Invalid weight calculation, check input values." });
+                }
+                // Insert weights into `ro_lo_mapping`
                 const roLoMappingPromises = data.map(async (item) => {
                     const { lo_id, priority } = item;
-                    // Calculate weight for the given priority
-                    const weight = priorityValues[priority] / totalDenominator;
-                    // Insert into ro_lo_mapping table for each RO and LO pair
-                    const insertPromises = roRows.map(async (roRow) => {
-                        const { ro_id } = roRow;
-                        await db.query(
-                            "INSERT INTO ro_lo_mapping (ro_id, lo_id, weight) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight = ?",
-                            [ro_id, lo_id, weight, weight]
-                        );
-                    });
-                    await Promise.all(insertPromises);
+                    let weight = priorityValues[priority] / totalDenominator;
+                    await db.query(
+                        "INSERT INTO ro_lo_mapping (ro_id, lo_id, weight) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight = ?",
+                        [ro_id, lo_id, weight, weight]
+                    );
+                    return { lo_id, weight };
                 });
-                // Wait for all insert operations to complete
-                await Promise.all(roLoMappingPromises);
+                // Resolve all weight calculations
+                const mappings = await Promise.all(roLoMappingPromises);
+                // Process ro_scores for each student
+                for (const student_id of studentIds) {
+                    let roScore = 0;
+                    for (const mapping of mappings) {
+                        const { lo_id, weight } = mapping;
+                        // Fetch `value` from `lo_scores`
+                        const [loScoreRows] = await db.query(
+                            "SELECT value FROM lo_scores WHERE lo_id = ? AND student_id = ?",
+                            [lo_id, student_id]
+                        );
+                        if (loScoreRows.length === 0) {
+                            console.warn(`Missing lo_scores for lo_id: ${lo_id}, student_id: ${student_id}`);
+                            continue;
+                        }
+                        const { value } = loScoreRows[0];
+                        roScore += weight * value;
+                    }
+                    // Insert or update `ro_scores`
+                    await db.query(
+                        "INSERT INTO ro_scores (ro_id, student_id, value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value = ?",
+                        [ro_id, student_id, roScore, roScore]
+                    );
+                }
                 res.status(201).json({
                     message: "RO and LO mapping with weights saved successfully",
+                    students_processed: studentIds.length,
                 });
             } catch (error) {
                 console.error("Error mapping RO and LO:", error.message);
-                res.status(500).json({
-                    error: "Internal Server Error",
-                });
+                res.status(500).json({ error: "Internal Server Error" });
             }
         });
-        app.post("/api/ro_lo_mapping", async (req, res) => {
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
+        app.get("/api/lo_scores", async (req, res) => {
             try {
-                // Extract filters from headers
-                const { subject, year } = req.headers;
-                // Extract data from the body (JSON)
-                const { data } = req.body; // Array with each element containing lo_id and priority (h, m, l)
-                // Validation check for data
-                if (!data || !Array.isArray(data) || loRows.length === 0 || (lo_id !== "l" && lo_id !== "h" && lo_id !== "m")) {
+                // Extract student_id and lo_id from headers
+                const { student_id, lo_id } = req.headers;
+                // Validation check for student_id
+                if (!student_id) {
                     return res.status(400).json({
-                        error: "Invalid data format. Expected an array of objects with lo_id and priority.",
+                        error: "student_id header is required.",
                     });
                 }
-                // Fetch relevant report_outcomes (RO) based on filters
-                const [roRows] = await db.query(
-                    `SELECT ro.id AS ro_id
-                    FROM report_outcomes ro
-                    WHERE ro.subject = ? AND ro.year = ?`,
-                    [subject, year]
-                );
-                if (roRows.length === 0) {
+                let query = `SELECT ls.student_id, ls.lo_id, ls.value FROM lo_scores ls WHERE ls.student_id = ?`;
+                let queryParams = [student_id];
+                // If lo_id is provided, filter results by lo_id
+                if (lo_id) {
+                    query += " AND ls.lo_id = ?";
+                    queryParams.push(lo_id);
+                }
+                // Fetch lo_scores based on student_id (and optional lo_id)
+                const [loScores] = await db.query(query, queryParams);
+                if (loScores.length === 0) {
                     return res.status(404).json({
-                        error: "No matching RO records found for the provided filters.",
+                        error: "No lo_scores found for the provided student_id.",
                     });
                 }
-                // Calculate priority occurrences
-                let hOccurance = 0, mOccurance = 0, lOccurance = 0;
-                // Process input data and calculate total occurrences
-                data.forEach(item => {
-                    const { lo_id, priority } = item;
-                    if (priority === "h") {
-                        hOccurance++;
-                    } else if (priority === "m") {
-                        mOccurance++;
-                    } else if (priority === "l") {
-                        lOccurance++;
-                    }
-                });
-                // Calculate the total denominator
-                const totalDenominator = (priorityValues.h * hOccurance) + (priorityValues.m * mOccurance) + (priorityValues.l * lOccurance);
-                // Check if we have valid data for calculating weights
-                if (totalDenominator === 0) {
-                    return res.status(400).json({
-                        error: "The total denominator for weight calculation is zero. Check input values.",
-                    });
-                }
-                // Calculate weight for each RO and LO pair based on priority
-                const roLoMappingPromises = data.map(async (item) => {
-                    const { lo_id, priority } = item;
-                    // Calculate weight for the given priority
-                    const weight = priorityValues[priority] / totalDenominator;
-                    // Insert into ro_lo_mapping table for each RO and LO pair
-                    const insertPromises = roRows.map(async (roRow) => {
-                        const { ro_id } = roRow;
-                        await db.query(
-                            "INSERT INTO ro_lo_mapping (ro_id, lo_id, weight) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight = ?",
-                            [ro_id, lo_id, weight, weight]
-                        );
-                    });
-                    await Promise.all(insertPromises);
-                });
-                // Wait for all insert operations to complete
-                await Promise.all(roLoMappingPromises);
-                res.status(201).json({
-                    message: "RO and LO mapping with weights saved successfully",
+                // Send the response with lo_scores data
+                res.status(200).json({
+                    lo_scores: loScores,
                 });
             } catch (error) {
-                console.error("Error mapping RO and LO:", error.message);
-                res.status(500).json({
-                    error: "Internal Server Error",
-                });
-            } 
-        });
-        //---------------------------------------------------------------------------------------------------------------------
-        // POST ro_lo_mapping
-        //---------------------------------------------------------------------------------------------------------------------
-
-        app.post("/api/ro_lo_mapping", async (req, res) => {
-            try {
-                // Extract filters from headers
-                const { subject, year } = req.headers;
-
-                // Extract data from the body (JSON)
-                const { data } = req.body; // Array with each element containing lo_id and priority (h, m, l)
-
-                // Validation check for data
-                if (!data || !Array.isArray(data) || data.length === 0) {
-                    return res.status(400).json({
-                        error: "Invalid data format. Expected an array of objects with lo_id and priority.",
-                    });
-                }
-
-                // Fetch relevant report_outcomes (RO) based on filters
-                const [roRows] = await db.query(
-                    `SELECT ro.id AS ro_id
-                     FROM report_outcomes ro
-                     WHERE ro.subject = ? AND ro.year = ?`,
-                    [subject, year]
-                );
-
-                if (roRows.length === 0) {
-                    return res.status(404).json({
-                        error: "No matching RO records found for the provided filters.",
-                    });
-                }
-
-                // Calculate priority occurrences
-                let hOccurance = 0, mOccurance = 0, lOccurance = 0;
-
-                // Process input data and calculate total occurrences
-                data.forEach(item => {
-                    const { lo_id, priority } = item;
-                    if (priority === "h") {
-                        hOccurance++;
-                    } else if (priority === "m") {
-                        mOccurance++;
-                    } else if (priority === "l") {
-                        lOccurance++;
-                    }
-                });
-
-                // Calculate the total denominator
-                const totalDenominator = (priorityValues.h * hOccurance) + (priorityValues.m * mOccurance) + (priorityValues.l * lOccurance);
-
-                // Check if we have valid data for calculating weights
-                if (totalDenominator === 0) {
-                    return res.status(400).json({
-                        error: "The total denominator for weight calculation is zero. Check input values.",
-                    });
-                }
-
-                // Calculate weight for each RO and LO pair based on priority
-                const roLoMappingPromises = data.map(async (item) => {
-                    const { lo_id, priority } = item;
-
-                    // Calculate weight for the given priority
-                    const weight = priorityValues[priority] / totalDenominator;
-
-                    // Insert into ro_lo_mapping table for each RO and LO pair
-                    const insertPromises = roRows.map(async (roRow) => {
-                        const { ro_id } = roRow;
-
-                        await db.query(
-                            "INSERT INTO ro_lo_mapping (ro_id, lo_id, weight) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight = ?",
-                            [ro_id, lo_id, weight, weight]
-                        );
-                    });
-
-                    await Promise.all(insertPromises);
-                });
-
-                // Wait for all insert operations to complete
-                await Promise.all(roLoMappingPromises);
-
-                res.status(201).json({
-                    message: "RO and LO mapping with weights saved successfully",
-                });
-            } catch (error) {
-                console.error("Error mapping RO and LO:", error.message);
+                console.error("Error fetching lo_scores:", error.message);
                 res.status(500).json({
                     error: "Internal Server Error",
                 });
             }
         });
 
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
+        app.get("/api/ro_scores", async (req, res) => {
+            try {
+                // Extract student_id from headers
+                const { student_id } = req.headers;
+                // Validation check for student_id
+                if (!student_id) {
+                    return res.status(400).json({
+                        error: "student_id header is required.",
+                    });
+                }
+                // Fetch all ro_scores based on student_id
+                const [roScores] = await db.query(
+                    `SELECT rs.student_id, rs.ro_id, rs.value
+                    FROM ro_scores rs
+                    WHERE rs.student_id = ?`,
+                    [student_id]
+                );
+                if (roScores.length === 0) {
+                    return res.status(404).json({
+                        error: "No ro_scores found for the provided student_id.",
+                    });
+                }
+                // Send the response with ro_scores data
+                res.status(200).json({
+                    ro_scores: roScores,
+                });
+            } catch (error) {
+                console.error("Error fetching ro_scores:", error.message);
+                res.status(500).json({
+                    error: "Internal Server Error",
+                });
+            }
+        });        
+                
 
-
+        //--------------------------------------------------------------------------------------------------------------------------------------------------
 
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);

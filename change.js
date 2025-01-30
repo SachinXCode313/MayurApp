@@ -292,23 +292,23 @@ app.use(cors());
         app.post("/api/ac_scores", async (req, res) => {
             try {
                 // Extracting headers
-                const { year, quarter, subject } = req.headers;
+                const { year, quarter, classname, subject } = req.headers;
 
                 // Extracting obtained marks from the body
                 const { obtained_marks, student_id, ac_id } = req.body;
 
                 // Input validation
-                if (!obtained_marks) {
+                if (!obtained_marks || !student_id || !ac_id) {
                     return res.status(400).json({ error: "obtained_marks, student_id and ac_id is required in the body" });
                 }
-                if (!student_id || !ac_id) {
+                if (!year || !quarter || !classname || !subject) {
                     return res.status(400).json({ error: "year, quarter, subject are required in the headers" });
                 }
 
                 // Fetch the assessment criteria using ac_id
                 const [criteriaRows] = await db.query(
-                    "SELECT max_marks FROM assessment_criterias WHERE id = ? AND subject = ? AND quarter = ? AND year = ?",
-                    [ac_id, subject, quarter, year]
+                    "SELECT max_marks FROM assessment_criterias WHERE id = ? AND subject = ? AND quarter = ? AND year = ? AND classname = ?" ,
+                    [ac_id, subject, quarter, year, classname]
                 );
 
                 // If no matching criteria is found
@@ -344,9 +344,6 @@ app.use(cors());
         //--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get('/api/ac_scores', async (req, res) => {
             const { student_id, ac_id } = req.headers; // Extract headers
-
-            console.log(`Fetching score for Student ID: ${student_id}, Assessment Criteria ID: ${ac_id}`);
-
             // Validate input
             if (!student_id || !ac_id) {
                 return res.status(400).json({
@@ -359,7 +356,7 @@ app.use(cors());
                 const query = `
                     SELECT student_id, ac_id, value
                     FROM ac_scores
-                    WHERE student_id = ? AND ac_id = ?
+                    WHERE student_id = ? AND ac_id = ? 
                 `;
                 const [results] = await db.execute(query, [student_id, ac_id]);
 
@@ -430,8 +427,8 @@ app.use(cors());
                 const inputAcIds = data.map(item => item.ac_id);
                 // Validate provided ac_ids
                 const [validAcRows] = await db.query(
-                    `SELECT id AS ac_id FROM assessment_criterias WHERE id IN (?) AND subject = ? AND quarter = ?`,
-                    [inputAcIds, subject, quarter]
+                    `SELECT id AS ac_id FROM assessment_criterias WHERE id IN (?) AND subject = ? AND quarter = ? AND classname = ?`,
+                    [inputAcIds, subject, quarter, classname]
                 );
                 const validAcIds = validAcRows.map(row => row.ac_id);
                 if (validAcIds.length !== inputAcIds.length) {
@@ -515,7 +512,6 @@ app.use(cors());
                 if (roRows.length === 0) {
                     return res.status(404).json({ error: "Invalid ro_id provided." });
                 }
-                console.log(className,section)
                 // Fetch student IDs from `students_records`
                 const [studentRows] = await db.query(
                     `SELECT student_id FROM students_records WHERE year = ${year} AND class = ${className} AND section = ${section}`
@@ -528,8 +524,8 @@ app.use(cors());
                 const inputLoIds = data.map(item => item.lo_id);
                 // Validate provided lo_ids
                 const [validLoRows] = await db.query(
-                    "SELECT id AS lo_id FROM learning_outcomes WHERE id IN (?) AND subject = ? AND quarter = ?",
-                    [inputLoIds, subject, quarter]
+                    "SELECT id AS lo_id FROM learning_outcomes WHERE id IN (?) AND subject = ? AND quarter = ? AND classname = ?",
+                    [inputLoIds, subject, quarter, classname]
                 );
                 const validLoIds = validLoRows.map(row => row.lo_id);
                 if (validLoIds.length !== inputLoIds.length) {
@@ -591,7 +587,7 @@ app.use(cors());
         app.get("/api/lo_scores", async (req, res) => {
             try {
                 // Extract student_id and lo_id from headers
-                const { student_id, lo_id } = req.headers;
+                const { student_id } = req.headers;
                 // Validation check for student_id
                 if (!student_id) {
                     return res.status(400).json({
@@ -601,10 +597,6 @@ app.use(cors());
                 let query = `SELECT ls.student_id, ls.lo_id, ls.value FROM lo_scores ls WHERE ls.student_id = ?`;
                 let queryParams = [student_id];
                 // If lo_id is provided, filter results by lo_id
-                if (lo_id) {
-                    query += " AND ls.lo_id = ?";
-                    queryParams.push(lo_id);
-                }
                 // Fetch lo_scores based on student_id (and optional lo_id)
                 const [loScores] = await db.query(query, queryParams);
                 if (loScores.length === 0) {

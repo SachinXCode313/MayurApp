@@ -25,7 +25,7 @@ app.use(cors());
             const year = req.headers['year'];
             const className = req.headers['class'];
             const section = req.headers['section'];
-
+            
             if (!year || !className || !section) {
                 return res.status(400).json({
                     message: "Missing required headers. Please provide 'year', 'class', and 'section'."
@@ -59,7 +59,7 @@ app.use(cors());
             }
         });
 
-        //--------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post('/api/students', async (req, res) => {
             const year = req.headers['year'];
             const className = req.headers['class'];
@@ -98,7 +98,7 @@ app.use(cors());
             }
         });
 
-        //--------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get("/api/report_outcomes", async (req, res) => {
             const year = req.headers["year"];
             const subject = req.headers["subject"];
@@ -134,26 +134,26 @@ app.use(cors());
             }
         });
 
-        //--------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post("/api/learning_outcomes", async (req, res) => {
-            const { year, quarter, subject } = req.headers;
+            const { year, quarter,className, subject } = req.headers;
             const { name } = req.body;
-
-            if (!year || !quarter || !subject || !name) {
+        
+            if (!year || !quarter || !className || !subject || !name) {
                 return res.status(400).json({
-                    message: "Missing required fields: year, quarter, subject (headers) or name (body).",
+                    message: "Missing required fields: year, quarter,class, subject (headers) or name (body).",
                 });
             }
             try {
                 const [maxIdRow] = await db.execute('SELECT MAX(id) AS maxId FROM learning_outcomes');
-                const newId = (maxIdRow[0].maxId || 0) + 1;
-
+                const newId = (maxIdRow[0].maxId || 0) + 1; 
+        
                 const query = `
-                INSERT INTO learning_outcomes (id, name, year, quarter, subject) 
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO learning_outcomes (id, name, year, quarter,class, subject) 
+                VALUES (?, ?, ?, ?, ?, ?)
                 `;
-                const [result] = await db.execute(query, [newId, name, year, quarter, subject]);
-
+                const [result] = await db.execute(query, [newId, name, year, quarter,className, subject]);
+        
                 res.status(201).json({
                     message: "Learning outcome added successfully",
                     insertedId: newId, // Respond with the manually generated ID
@@ -164,21 +164,21 @@ app.use(cors());
             }
         });
 
-        //--------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get("/api/learning_outcomes", async (req, res) => {
-            const { year, subject, quarter } = req.headers;
+            const { year, subject,className, quarter } = req.headers;
 
-            if (!year || !subject || !quarter) {
-                return res.status(400).json({ message: "Missing required headers: year, subject, or quarter" });
+            if (!year || !subject || !quarter ||!className) {
+                return res.status(400).json({ message: "Missing required headers: year, subject,class or quarter" });
             }
 
             try {
                 const query = `
             SELECT id, name 
             FROM learning_outcomes 
-            WHERE year = ? AND subject = ? AND quarter = ?
+            WHERE year = ? AND subject = ? AND quarter = ? AND class = ?
             `;
-                const [results] = await db.execute(query, [year, subject, quarter]);
+                const [results] = await db.execute(query, [year, subject, quarter,className]);
 
                 if (results.length === 0) {
                     return res.status(404).json({ message: "No learning outcomes found for the provided filters" });
@@ -191,16 +191,16 @@ app.use(cors());
             }
         });
 
-        //--------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------
         app.get('/api/assessment_criterias', async (req, res) => {
-            const { subject, year, quarter } = req.headers; // Extract headers
+            const { subject, year, quarter,className } = req.headers; // Extract headers
 
-            console.log(`Subject: ${subject}, Year: ${year}, Quarter: ${quarter}`);
+            console.log(`Subject: ${subject}, Year: ${year}, Quarter: ${quarter} , class: ${className}`);
 
             // Validate input
-            if (!subject || !year || !quarter) {
+            if (!subject || !year || !quarter || !className) {
                 return res.status(400).json({
-                    message: 'Invalid input. Subject, Year, and Quarter are required in the headers.',
+                    message: 'Invalid input. Subject,Class, Year, and Quarter are required in the headers.',
                 });
             }
 
@@ -209,11 +209,11 @@ app.use(cors());
                 const query = `
                     SELECT id, name, max_marks
                     FROM assessment_criterias
-                    WHERE subject = ? AND year = ? AND quarter = ?
+                    WHERE subject = ? AND year = ? AND quarter = ? AND class = ?
                 `;
 
                 // Execute the query
-                const [results] = await db.execute(query, [subject, year, quarter]);
+                const [results] = await db.execute(query, [subject, year, quarter,className]);
 
                 // Check if results are found
                 if (results.length === 0) {
@@ -237,23 +237,23 @@ app.use(cors());
             }
         });
 
-        //--------------------------------------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------------------------------
         app.post('/api/assessment_criterias', async (req, res) => {
-            const { year, quarter, subject } = req.headers;
-            const { max_marks, name } = req.body;
+            const { year, quarter, subject,className } = req.headers; 
+            const { max_marks, name } = req.body; 
 
             // Validate required fields
-            if (!year || !quarter || !subject || !max_marks || !name) {
+            if (!year || !quarter || !subject || !max_marks || !className || !name) {
                 return res.status(400).json({
-                    message: 'Missing required fields. Ensure year, quarter, subject (headers), and max_marks, name (body) are provided.',
+                    message: 'Missing required fields. Ensure year, quarter,class, subject (headers), and max_marks, name (body) are provided.',
                 });
             }
 
             try {
                 // SQL query to insert data into the table
                 const insertQuery = `
-                    INSERT INTO assessment_criterias (name, max_marks, year, quarter, subject)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO assessment_criterias (name, max_marks, year, quarter, subject,class)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 `;
 
                 // Execute the query
@@ -263,6 +263,7 @@ app.use(cors());
                     year,
                     quarter,
                     subject,
+                    className
                 ]);
 
                 // Return success response
